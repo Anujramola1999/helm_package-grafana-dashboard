@@ -1,0 +1,30 @@
+# Kyverno Monitoring Configuration
+# Enable Grafana dashboards and Prometheus ServiceMonitors
+
+grafana:
+  enabled: true
+
+admissionController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
+backgroundController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
+cleanupController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
+reportsController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
