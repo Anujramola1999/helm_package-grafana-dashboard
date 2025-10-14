@@ -16,11 +16,13 @@ Wait for all monitoring pods to be running before proceeding.
 
 ## Step 1: Install Kyverno
 
-Install Kyverno using the packaged chart:
+Install Kyverno using the packaged chart with release name `n4k-kyverno`:
 
 ```bash
-helm install kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace
+helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace
 ```
+
+**Note:** Using `n4k-kyverno` as the release name creates service names like `n4k-kyverno-svc-metrics`, which becomes the Prometheus job label for easier identification.
 
 This installs the base Kyverno components with metrics endpoints exposed on port 8000.
 
@@ -41,7 +43,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/instance: n4k-kyverno
   namespaceSelector:
     matchNames:
     - kyverno
@@ -57,7 +59,7 @@ Apply the ServiceMonitor:
 kubectl apply -f servicemonitor.yaml
 ```
 
-This single ServiceMonitor matches all 4 Kyverno metrics services using the common label `app.kubernetes.io/instance=kyverno`.
+This single ServiceMonitor matches all 4 Kyverno metrics services using the common label `app.kubernetes.io/instance=n4k-kyverno`.
 
 ---
 
@@ -66,7 +68,7 @@ This single ServiceMonitor matches all 4 Kyverno metrics services using the comm
 Upgrade Kyverno installation to enable Grafana dashboard deployment:
 
 ```bash
-helm upgrade kyverno ./kyverno-3.5.5.tgz -n kyverno --set grafana.enabled=true
+helm upgrade n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --set grafana.enabled=true
 ```
 
 This creates a ConfigMap with label `grafana_dashboard=1` containing two dashboards. Grafana sidecar automatically discovers and imports them within 30-60 seconds.
@@ -213,10 +215,10 @@ Use the value of the `release` label in your monitoring-values.yaml file.
 Then install with:
 
 ```bash
-helm install kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f monitoring-values.yaml
+helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f monitoring-values.yaml
 ```
 
-This deploys Kyverno with both dashboards and ServiceMonitors in one command.
+This deploys Kyverno with both dashboards and ServiceMonitors in one command. The release name `n4k-kyverno` creates service names prefixed with `n4k-kyverno-`, making them easily identifiable in Prometheus.
 
 ---
 

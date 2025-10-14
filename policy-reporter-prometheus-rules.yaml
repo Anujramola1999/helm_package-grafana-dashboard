@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: policy-reporter-recording-rules
+  namespace: monitoring
+  labels:
+    release: monitoring  # This label ensures Prometheus picks it up
+    app: kube-prometheus-stack
+spec:
+  groups:
+  - name: policy_report_rules
+    interval: 1m  # How often to run the rule
+    rules:
+    - record: policy_report:results:sum
+      expr: >
+        sum by (policy, category, severity, kind, exported_namespace, status) (policy_report_result)
+
+    - record: policy_report:results_total:sum
+      expr: >
+        sum by (policy, category, severity, kind, exported_namespace) (policy_report_result)
+
+    - record: cluster_policy_report:results:sum
+      expr: >
+        sum by (policy, category, severity, kind, exported_namespace, status) (cluster_policy_report_result)
+
+    - record: cluster_policy_report:results_total:sum
+      expr: >
+        sum by (policy, category, severity, kind, exported_namespace) (cluster_policy_report_result)
+
