@@ -117,6 +117,7 @@ helm template kyverno ./kyverno-3.5.5.tgz --set grafana.enabled=true --show-only
 ```
 kyverno-dashboard.json: |
 kyverno-performance-metrics.json: |-
+kyverno-policy-reports.json: |
 ```
 
 ### To verify ConfigMap has the correct discovery label:
@@ -223,6 +224,7 @@ When you install with `grafana.enabled=true`:
 `kyverno-3.5.5.tgz` contains:
 - `charts/grafana/dashboard/kyverno-dashboard.json`
 - `charts/grafana/dashboard/kyverno-performance-metrics.json`
+- `charts/grafana/dashboard/kyverno-policy-reports.json`
 - `charts/grafana/templates/dashboard.yaml` (reads all JSON files)
 - `values.yaml` (with `grafana.enabled=false` by default)
 

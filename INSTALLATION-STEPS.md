@@ -96,6 +96,7 @@ kubectl get configmap kyverno-grafana-grafana -n kyverno -o yaml | grep "\.json:
 Expected output shows:
 - `kyverno-dashboard.json`
 - `kyverno-performance-metrics.json`
+- `kyverno-policy-reports.json`
 
 ---
 
@@ -137,15 +138,18 @@ Navigate to **Dashboards** to see the auto-imported Kyverno dashboards.
 
 ## What Gets Deployed
 
-Two Grafana dashboards are automatically available:
+Three Grafana dashboards are automatically available:
 
-### 1. Kyverno Metrics Dashboard (original)
+### 1. Kyverno Metrics Dashboard
 Shows policy execution, admission requests, policy changes, and latency metrics.
 
-### 2. Kyverno Performance Metrics Dashboard (new)
+### 2. Kyverno Performance Metrics Dashboard
 Shows CPU/memory usage, admission review latency, policy execution performance, and resource utilization.
 
-Both dashboards use metrics scraped from the four Kyverno controller services through the single ServiceMonitor.
+### 3. Kyverno Policy Reports Dashboard
+Shows compliance status, policy report results, failed/error counts by policy, and cluster-wide policy compliance metrics.
+
+All dashboards use metrics scraped from the four Kyverno controller services through the ServiceMonitor.
 
 ---
 
