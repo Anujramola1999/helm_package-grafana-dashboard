@@ -162,19 +162,49 @@ grafana:
 admissionController:
   serviceMonitor:
     enabled: true
+    additionalLabels:
+      release: monitoring
 
 backgroundController:
   serviceMonitor:
     enabled: true
+    additionalLabels:
+      release: monitoring
 
 cleanupController:
   serviceMonitor:
     enabled: true
+    additionalLabels:
+      release: monitoring
 
 reportsController:
   serviceMonitor:
     enabled: true
+    additionalLabels:
+      release: monitoring
 ```
+
+**Note:** The `release: monitoring` label is required for Prometheus to discover ServiceMonitors. To find the correct release name for your Prometheus installation, run:
+
+```bash
+kubectl get prometheus -o yaml -n monitoring | grep -A 20 serviceMonitorSelector
+```
+
+Or use this simpler command to see all monitor-related configuration:
+
+```bash
+kubectl get prometheus -o yaml | grep monitor
+```
+
+Look for the `matchLabels` section under `serviceMonitorSelector`:
+
+```yaml
+serviceMonitorSelector:
+  matchLabels:
+    release: monitoring
+```
+
+Use the value of the `release` label in your monitoring-values.yaml file.
 
 Then install with:
 
