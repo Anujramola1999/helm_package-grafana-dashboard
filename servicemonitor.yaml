@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kyverno-metrics
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: kyverno
+  namespaceSelector:
+    matchNames:
+    - kyverno
+  endpoints:
+  - port: metrics-port
+    interval: 30s
+    path: /metrics
+
