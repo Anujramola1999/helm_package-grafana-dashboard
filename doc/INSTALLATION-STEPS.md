@@ -22,13 +22,22 @@ Install Kyverno using the packaged chart with release name `n4k-kyverno`:
 helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace
 ```
 
-**Note:** Using `n4k-kyverno` as the release name creates service names like `n4k-kyverno-svc-metrics`, which becomes the Prometheus job label for easier identification.
+### Why use `n4k-kyverno` as the release name?
 
-This installs the base Kyverno components with metrics endpoints exposed on port 8000.
+**Important:** The Grafana dashboards in this package are configured to query metrics with `job="n4k-kyverno-svc-metrics"`. The Helm release name directly creates Kubernetes service names, which become the Prometheus job labels.
+
+Using `n4k-kyverno` as the release name:
+- Creates the service `n4k-kyverno-svc-metrics` automatically
+- This service name becomes the Prometheus job label `job="n4k-kyverno-svc-metrics"`
+- Dashboards work without any configuration changes
+
+**Alternative (not recommended):** You could use a different release name and manually configure ServiceMonitor `relabelings` to override the job label, but this adds unnecessary complexity.
+
+This installs the base Kyverno components with metrics endpoints exposed on port 8000, and creates the PolicyReport CRDs.
 
 ---
 
-## Step 2: Create ServiceMonitor for Metrics Scraping
+## Step 2: Create ServiceMonitor for Kyverno Metrics
 
 Create `servicemonitor.yaml` file with following content:
 
@@ -71,7 +80,52 @@ Upgrade Kyverno installation to enable Grafana dashboard deployment:
 helm upgrade n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --set grafana.enabled=true
 ```
 
-This creates a ConfigMap with label `grafana_dashboard=1` containing two dashboards. Grafana sidecar automatically discovers and imports them within 30-60 seconds.
+This creates a ConfigMap with label `grafana_dashboard=1` containing three dashboards. Grafana sidecar automatically discovers and imports them within 30-60 seconds.
+
+---
+
+## Step 4: Install Policy Reporter
+
+Policy Reporter collects and exposes policy compliance metrics required for the Policy Reports dashboard.
+
+### Add Policy Reporter Helm repository:
+
+```bash
+helm repo add policy-reporter https://kyverno.github.io/policy-reporter
+helm repo update
+```
+
+### Install Policy Reporter with metrics and monitoring enabled:
+
+```bash
+helm install policy-reporter policy-reporter/policy-reporter \
+  --create-namespace -n policy-reporter \
+  --set metrics.enabled=true \
+  --set monitoring.enabled=true \
+  --set monitoring.serviceMonitor.labels.release=monitoring
+```
+
+This creates:
+- Policy Reporter deployment to watch PolicyReports and ClusterPolicyReports
+- ServiceMonitor with `release: monitoring` label for Prometheus discovery
+- Metrics endpoint at `/metrics` for policy compliance data
+
+---
+
+## Step 5: Apply Prometheus Recording Rules
+
+Apply recording rules for efficient policy metric aggregation:
+
+```bash
+kubectl apply -f policy-reporter-prometheus-rules.yaml
+```
+
+Restart Prometheus to load the new configuration:
+
+```bash
+kubectl rollout restart statefulset -n monitoring prometheus-monitoring-kube-prometheus-prometheus
+kubectl wait --for=condition=ready pod -n monitoring prometheus-monitoring-kube-prometheus-prometheus-0 --timeout=120s
+```
 
 ---
 
@@ -157,7 +211,9 @@ All dashboards use metrics scraped from the four Kyverno controller services thr
 
 ## Alternative One-Command Installation
 
-Instead of steps 1-3, you can use a values file for single command installation.
+Instead of steps 1-3, you can use a values file for single command Kyverno installation.
+
+**Note:** You still need to install Policy Reporter (Steps 4-5) and Kyverno Policies (Step 6) separately.
 
 Create `monitoring-values.yaml`:
 
@@ -219,6 +275,32 @@ helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f mo
 ```
 
 This deploys Kyverno with both dashboards and ServiceMonitors in one command. The release name `n4k-kyverno` creates service names prefixed with `n4k-kyverno-`, making them easily identifiable in Prometheus.
+
+---
+
+## Step 6: Install Kyverno Policies (Optional)
+
+To see compliance data in the Policy Reports dashboard, install some policies:
+
+### Install Pod Security Baseline policies:
+
+```bash
+kubectl apply -k https://github.com/nirmata/kyverno-policies/pod-security/baseline
+```
+
+### Install Pod Security Restricted policies:
+
+```bash
+kubectl apply -k https://github.com/nirmata/kyverno-policies/pod-security/restricted
+```
+
+### Install RBAC Best Practices policies:
+
+```bash
+kubectl apply -k https://github.com/nirmata/kyverno-policies/rbac-best-practices
+```
+
+These policies will generate PolicyReports that appear in the compliance dashboard.
 
 ---
 
