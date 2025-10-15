@@ -221,6 +221,13 @@ Instead of steps 1-3, you can use a values file for single command Kyverno insta
 Create `monitoring-values.yaml`:
 
 ```yaml
+# Kyverno Monitoring Configuration
+# Enable Grafana dashboards, Prometheus ServiceMonitors, and Reports Server with ETCD
+
+crds:
+  reportsServer:
+    enabled: true
+
 grafana:
   enabled: true
 
@@ -247,6 +254,15 @@ reportsController:
     enabled: true
     additionalLabels:
       release: monitoring
+
+# Enable Reports Server with ETCD backend (ETCD is enabled by default with 2Gi PVC and ~1.8GiB quota)
+reports-server:
+  install: true
+  metrics:
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: monitoring
 ```
 
 **Note:** The `release: monitoring` label is required for Prometheus to discover ServiceMonitors. To find the correct release name for your Prometheus installation, run:
@@ -277,7 +293,15 @@ Then install with:
 helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f monitoring-values.yaml
 ```
 
-This deploys Kyverno with both dashboards and ServiceMonitors in one command. The release name `n4k-kyverno` creates service names prefixed with `n4k-kyverno-`, making them easily identifiable in Prometheus.
+This deploys Kyverno with:
+- ✅ **4 Grafana Dashboards** - Auto-discovered by Grafana sidecar
+- ✅ **4 Kyverno Controller ServiceMonitors** - For admission, background, cleanup, reports controllers
+- ✅ **Reports Server with ETCD** - 3-node ETCD cluster with 2Gi PVC and ~1.8GiB quota
+- ✅ **Reports Server ServiceMonitor** - For reports-server application metrics
+
+The release name `n4k-kyverno` creates service names prefixed with `n4k-kyverno-`, making them easily identifiable in Prometheus.
+
+**Note:** You still need to manually apply the ETCD ServiceMonitor (Step 6) for ETCD storage observability metrics.
 
 ---
 
