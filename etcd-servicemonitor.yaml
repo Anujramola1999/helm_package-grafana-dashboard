@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: etcd-reports-server
+  namespace: kyverno
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: etcd-reports-server
+  endpoints:
+  - port: etcd-metrics
+    interval: 30s
+    path: /metrics
+

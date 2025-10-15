@@ -1,5 +1,9 @@
 # Kyverno Monitoring Configuration
-# Enable Grafana dashboards and Prometheus ServiceMonitors
+# Enable Grafana dashboards, Prometheus ServiceMonitors, and Reports Server with ETCD
+
+crds:
+  reportsServer:
+    enabled: true
 
 grafana:
   enabled: true
@@ -27,4 +31,13 @@ reportsController:
     enabled: true
     additionalLabels:
       release: monitoring
+
+# Enable Reports Server with ETCD backend (ETCD is enabled by default with 2Gi PVC and ~1.8GiB quota)
+reports-server:
+  install: true
+  metrics:
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: monitoring
 

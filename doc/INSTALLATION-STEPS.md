@@ -194,7 +194,7 @@ Navigate to **Dashboards** to see the auto-imported Kyverno dashboards.
 
 ## What Gets Deployed
 
-Three Grafana dashboards are automatically available:
+Three Grafana dashboards are automatically available (four if reports-server with ETCD is enabled):
 
 ### 1. Kyverno Metrics Dashboard
 Shows policy execution, admission requests, policy changes, and latency metrics.
@@ -205,7 +205,10 @@ Shows CPU/memory usage, admission review latency, policy execution performance, 
 ### 3. Kyverno Policy Reports Dashboard
 Shows compliance status, policy report results, failed/error counts by policy, and cluster-wide policy compliance metrics.
 
-All dashboards use metrics scraped from the four Kyverno controller services through the ServiceMonitor.
+### 4. Kyverno ETCD Storage Observability Dashboard (Optional - requires Step 6)
+Shows ETCD cluster health, database size, disk usage, operation latency, and compaction metrics for the reports-server backend.
+
+All dashboards use metrics scraped from the Kyverno controller services through ServiceMonitors.
 
 ---
 
@@ -278,7 +281,45 @@ This deploys Kyverno with both dashboards and ServiceMonitors in one command. Th
 
 ---
 
-## Step 6: Install Kyverno Policies (Optional)
+## Step 6: Enable Reports Server with ETCD (Optional - For ETCD Storage Dashboard)
+
+Reports Server with ETCD provides persistent storage for policy reports and enables ETCD storage observability.
+
+### Use the complete monitoring-values.yaml with reports-server enabled:
+
+The `monitoring-values.yaml` file in this repository already includes reports-server configuration. Use it as-is:
+
+```bash
+helm uninstall n4k-kyverno -n kyverno  # If already installed
+helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f monitoring-values.yaml
+```
+
+**Note:** Uninstall is needed to avoid APIService ownership conflicts when enabling reports-server on an existing installation.
+
+### Apply ETCD ServiceMonitor for ETCD metrics:
+
+```bash
+kubectl apply -f etcd-servicemonitor.yaml
+```
+
+### Verify ETCD deployment:
+
+```bash
+kubectl get pods -n kyverno | grep etcd
+```
+
+Expected output: 3 ETCD pods (etcd-0, etcd-1, etcd-2) running as a StatefulSet.
+
+### What gets deployed:
+
+- **Reports Server**: API server for policy reports with persistent ETCD backend
+- **ETCD Cluster**: 3-node StatefulSet with 2Gi PVC per pod and ~1.8GiB database quota
+- **ServiceMonitors**: For reports-server and ETCD metrics (6 total)
+- **ETCD Dashboard**: Kyverno ETCD Storage Observability dashboard (4th dashboard)
+
+---
+
+## Step 7: Install Kyverno Policies (Optional)
 
 To see compliance data in the Policy Reports dashboard, install some policies:
 
