@@ -319,7 +319,7 @@ Expected output: 3 ETCD pods (etcd-0, etcd-1, etcd-2) running as a StatefulSet.
 
 ---
 
-## Step 7: Install Kyverno Policies (Optional)
+## Step 7: Install Kyverno Policies 
 
 To see compliance data in the Policy Reports dashboard, install some policies:
 
