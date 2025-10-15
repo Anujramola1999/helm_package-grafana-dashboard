@@ -99,16 +99,19 @@ helm repo update
 
 ```bash
 helm install policy-reporter policy-reporter/policy-reporter \
-  --create-namespace -n policy-reporter \
+  -n kyverno \
   --set metrics.enabled=true \
   --set monitoring.enabled=true \
+  --set monitoring.serviceMonitor.namespace=kyverno \
   --set monitoring.serviceMonitor.labels.release=monitoring
 ```
 
 This creates:
-- Policy Reporter deployment to watch PolicyReports and ClusterPolicyReports
-- ServiceMonitor with `release: monitoring` label for Prometheus discovery
+- Policy Reporter deployment in kyverno namespace to watch PolicyReports and ClusterPolicyReports
+- ServiceMonitor in kyverno namespace with `release: monitoring` label for Prometheus discovery
 - Metrics endpoint at `/metrics` for policy compliance data
+
+**Note:** Installing Policy Reporter in the same namespace as Kyverno keeps all monitoring resources together.
 
 ---
 
