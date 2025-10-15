@@ -14,13 +14,9 @@ Wait for all monitoring pods to be running before proceeding.
 
 ---
 
-## Step 1: Install Kyverno
+## Step 1: Install Kyverno with Monitoring (Recommended Method)
 
-Install Kyverno using the packaged chart with release name `n4k-kyverno`:
-
-```bash
-helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace
-```
+Install Kyverno using the packaged chart with monitoring configuration using the included `monitoring-values.yaml` file.
 
 ### Why use `n4k-kyverno` as the release name?
 
@@ -33,58 +29,102 @@ Using `n4k-kyverno` as the release name:
 
 **Alternative (not recommended):** You could use a different release name and manually configure ServiceMonitor `relabelings` to override the job label, but this adds unnecessary complexity.
 
-This installs the base Kyverno components with metrics endpoints exposed on port 8000, and creates the PolicyReport CRDs.
+### Understanding monitoring-values.yaml
 
----
-
-## Step 2: Create ServiceMonitor for Kyverno Metrics
-
-Create `servicemonitor.yaml` file with following content:
+The `monitoring-values.yaml` file in this repository contains:
 
 ```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: kyverno-metrics
-  namespace: monitoring
-  labels:
+# Kyverno Monitoring Configuration
+# Enable Grafana dashboards, Prometheus ServiceMonitors, and Reports Server with ETCD
+
+crds:
+  reportsServer:
+    enabled: true
+
+grafana:
+  enabled: true
+
+admissionController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
+backgroundController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
+cleanupController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
+reportsController:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: monitoring
+
+# Enable Reports Server with ETCD backend (ETCD is enabled by default with 2Gi PVC and ~1.8GiB quota)
+reports-server:
+  install: true
+  metrics:
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: monitoring
+```
+
+**Note:** The `release: monitoring` label is required for Prometheus to discover ServiceMonitors. To find the correct release name for your Prometheus installation, run:
+
+```bash
+kubectl get prometheus -o yaml -n monitoring | grep -A 20 serviceMonitorSelector
+```
+
+Or use this simpler command to see all monitor-related configuration:
+
+```bash
+kubectl get prometheus -o yaml | grep monitor
+```
+
+Look for the `matchLabels` section under `serviceMonitorSelector`:
+
+```yaml
+serviceMonitorSelector:
+  matchLabels:
     release: monitoring
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/instance: n4k-kyverno
-  namespaceSelector:
-    matchNames:
-    - kyverno
-  endpoints:
-  - port: metrics-port
-    interval: 30s
-    path: /metrics
 ```
 
-Apply the ServiceMonitor:
+Use the value of the `release` label in your monitoring-values.yaml file.
+
+### Install Kyverno with monitoring enabled:
 
 ```bash
-kubectl apply -f servicemonitor.yaml
+helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f monitoring-values.yaml
 ```
 
-This single ServiceMonitor matches all 4 Kyverno metrics services using the common label `app.kubernetes.io/instance=n4k-kyverno`.
+This single command deploys Kyverno with:
+- ✅ **4 Grafana Dashboards** - Auto-discovered by Grafana sidecar
+- ✅ **4 Kyverno Controller ServiceMonitors** - For admission, background, cleanup, reports controllers
+- ✅ **Reports Server with ETCD** - 3-node ETCD cluster with 2Gi PVC and ~1.8GiB quota
+- ✅ **Reports Server ServiceMonitor** - For reports-server application metrics
+
+The release name `n4k-kyverno` creates service names prefixed with `n4k-kyverno-`, making them easily identifiable in Prometheus.
+
+### Apply ETCD ServiceMonitor for ETCD storage metrics:
+
+```bash
+kubectl apply -f etcd-servicemonitor.yaml
+```
+
+This enables the ETCD Storage Observability dashboard to display ETCD cluster health, database size, and performance metrics.
 
 ---
 
-## Step 3: Enable Grafana Dashboards
-
-Upgrade Kyverno installation to enable Grafana dashboard deployment:
-
-```bash
-helm upgrade n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --set grafana.enabled=true
-```
-
-This creates a ConfigMap with label `grafana_dashboard=1` containing three dashboards. Grafana sidecar automatically discovers and imports them within 30-60 seconds.
-
----
-
-## Step 4: Install Policy Reporter
+## Step 2: Install Policy Reporter
 
 Policy Reporter collects and exposes policy compliance metrics required for the Policy Reports dashboard.
 
@@ -115,7 +155,7 @@ This creates:
 
 ---
 
-## Step 5: Apply Prometheus Recording Rules
+## Step 3: Apply Prometheus Recording Rules
 
 Apply recording rules for efficient policy metric aggregation:
 
@@ -215,138 +255,84 @@ All dashboards use metrics scraped from the Kyverno controller services through 
 
 ---
 
-## Alternative One-Command Installation
+## Alternative: Manual ServiceMonitor Installation
 
-Instead of steps 1-3, you can use a values file for single command Kyverno installation.
+If you prefer to install Kyverno manually without using the monitoring-values.yaml file, you can follow these steps instead of Step 1 above.
 
-**Note:** You still need to install Policy Reporter (Steps 4-5) and Kyverno Policies (Step 6) separately.
+**Note:** This method requires more steps and is recommended only if you need granular control over each component.
 
-Create `monitoring-values.yaml`:
+### Step 1a: Install Base Kyverno
 
-```yaml
-# Kyverno Monitoring Configuration
-# Enable Grafana dashboards, Prometheus ServiceMonitors, and Reports Server with ETCD
-
-crds:
-  reportsServer:
-    enabled: true
-
-grafana:
-  enabled: true
-
-admissionController:
-  serviceMonitor:
-    enabled: true
-    additionalLabels:
-      release: monitoring
-
-backgroundController:
-  serviceMonitor:
-    enabled: true
-    additionalLabels:
-      release: monitoring
-
-cleanupController:
-  serviceMonitor:
-    enabled: true
-    additionalLabels:
-      release: monitoring
-
-reportsController:
-  serviceMonitor:
-    enabled: true
-    additionalLabels:
-      release: monitoring
-
-# Enable Reports Server with ETCD backend (ETCD is enabled by default with 2Gi PVC and ~1.8GiB quota)
-reports-server:
-  install: true
-  metrics:
-    serviceMonitor:
-      enabled: true
-      additionalLabels:
-        release: monitoring
-```
-
-**Note:** The `release: monitoring` label is required for Prometheus to discover ServiceMonitors. To find the correct release name for your Prometheus installation, run:
+Install Kyverno using the packaged chart with release name `n4k-kyverno`:
 
 ```bash
-kubectl get prometheus -o yaml -n monitoring | grep -A 20 serviceMonitorSelector
+helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace
 ```
 
-Or use this simpler command to see all monitor-related configuration:
+This installs the base Kyverno components with metrics endpoints exposed on port 8000, and creates the PolicyReport CRDs.
 
-```bash
-kubectl get prometheus -o yaml | grep monitor
-```
+### Step 1b: Create ServiceMonitor for Kyverno Metrics
 
-Look for the `matchLabels` section under `serviceMonitorSelector`:
+Create `servicemonitor.yaml` file with following content:
 
 ```yaml
-serviceMonitorSelector:
-  matchLabels:
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kyverno-metrics
+  namespace: monitoring
+  labels:
     release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: n4k-kyverno
+  namespaceSelector:
+    matchNames:
+    - kyverno
+  endpoints:
+  - port: metrics-port
+    interval: 30s
+    path: /metrics
 ```
 
-Use the value of the `release` label in your monitoring-values.yaml file.
-
-Then install with:
+Apply the ServiceMonitor:
 
 ```bash
-helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f monitoring-values.yaml
+kubectl apply -f servicemonitor.yaml
 ```
 
-This deploys Kyverno with:
-- ✅ **4 Grafana Dashboards** - Auto-discovered by Grafana sidecar
-- ✅ **4 Kyverno Controller ServiceMonitors** - For admission, background, cleanup, reports controllers
-- ✅ **Reports Server with ETCD** - 3-node ETCD cluster with 2Gi PVC and ~1.8GiB quota
-- ✅ **Reports Server ServiceMonitor** - For reports-server application metrics
+This single ServiceMonitor matches all 4 Kyverno metrics services using the common label `app.kubernetes.io/instance=n4k-kyverno`.
 
-The release name `n4k-kyverno` creates service names prefixed with `n4k-kyverno-`, making them easily identifiable in Prometheus.
+### Step 1c: Enable Grafana Dashboards
 
-**Note:** You still need to manually apply the ETCD ServiceMonitor (Step 6) for ETCD storage observability metrics.
-
----
-
-## Step 6: Enable Reports Server with ETCD (Optional - For ETCD Storage Dashboard)
-
-Reports Server with ETCD provides persistent storage for policy reports and enables ETCD storage observability.
-
-### Use the complete monitoring-values.yaml with reports-server enabled:
-
-The `monitoring-values.yaml` file in this repository already includes reports-server configuration. Use it as-is:
+Upgrade Kyverno installation to enable Grafana dashboard deployment:
 
 ```bash
-helm uninstall n4k-kyverno -n kyverno  # If already installed
-helm install n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --create-namespace -f monitoring-values.yaml
+helm upgrade n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --set grafana.enabled=true
 ```
 
-**Note:** Uninstall is needed to avoid APIService ownership conflicts when enabling reports-server on an existing installation.
+This creates a ConfigMap with label `grafana_dashboard=1` containing three dashboards. Grafana sidecar automatically discovers and imports them within 30-60 seconds.
 
-### Apply ETCD ServiceMonitor for ETCD metrics:
+### Step 1d: Enable Reports Server with ETCD (Optional)
+
+If you want the ETCD Storage Observability dashboard, upgrade with reports-server enabled:
+
+```bash
+helm upgrade n4k-kyverno ./kyverno-3.5.5.tgz -n kyverno --set grafana.enabled=true --set reports-server.install=true
+```
+
+Then apply the ETCD ServiceMonitor:
 
 ```bash
 kubectl apply -f etcd-servicemonitor.yaml
 ```
 
-### Verify ETCD deployment:
-
-```bash
-kubectl get pods -n kyverno | grep etcd
-```
-
-Expected output: 3 ETCD pods (etcd-0, etcd-1, etcd-2) running as a StatefulSet.
-
-### What gets deployed:
-
-- **Reports Server**: API server for policy reports with persistent ETCD backend
-- **ETCD Cluster**: 3-node StatefulSet with 2Gi PVC per pod and ~1.8GiB database quota
-- **ServiceMonitors**: For reports-server and ETCD metrics (6 total)
-- **ETCD Dashboard**: Kyverno ETCD Storage Observability dashboard (4th dashboard)
+After completing Steps 1a-1d, continue with Step 2 (Install Policy Reporter) above.
 
 ---
 
-## Step 7: Install Kyverno Policies 
+## Step 4: Install Kyverno Policies 
 
 To see compliance data in the Policy Reports dashboard, install some policies:
 
