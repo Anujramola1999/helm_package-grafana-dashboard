@@ -143,13 +143,19 @@ helm install policy-reporter policy-reporter/policy-reporter \
   --set metrics.enabled=true \
   --set monitoring.enabled=true \
   --set monitoring.serviceMonitor.namespace=kyverno \
-  --set monitoring.serviceMonitor.labels.release=monitoring
+  --set monitoring.serviceMonitor.labels.release=monitoring \
+  --set monitoring.grafana.dashboards.enable.overview=true \
+  --set monitoring.grafana.dashboards.enable.policyReportDetails=false \
+  --set monitoring.grafana.dashboards.enable.clusterPolicyReportDetails=false
 ```
 
 This creates:
 - Policy Reporter deployment in kyverno namespace to watch PolicyReports and ClusterPolicyReports
 - ServiceMonitor in kyverno namespace with `release: monitoring` label for Prometheus discovery
 - Metrics endpoint at `/metrics` for policy compliance data
+- Only the "PolicyReports" dashboard from Policy Reporter OSS (overview dashboard showing failing policies by namespace)
+
+**Important:** We selectively enable only the "PolicyReports" dashboard from Policy Reporter OSS (by setting `overview=true`) while disabling "PolicyReport Details" and "ClusterPolicyReport Details" dashboards to avoid duplication. This OSS dashboard complements our custom "PolicyReports Compliance Dashboard" which focuses on compliance metrics and trends.
 
 **Note:** Installing Policy Reporter in the same namespace as Kyverno keeps all monitoring resources together.
 
@@ -237,21 +243,24 @@ Navigate to **Dashboards** to see the auto-imported Kyverno dashboards.
 
 ## What Gets Deployed
 
-Three Grafana dashboards are automatically available (four if reports-server with ETCD is enabled):
+Four Grafana dashboards are automatically available (five if reports-server with ETCD is enabled):
 
-### 1. Kyverno Metrics Dashboard
-Shows policy execution, admission requests, policy changes, and latency metrics.
+### 1. Kyverno Metrics Dashboard (Custom)
+Shows policy execution, admission requests, policy changes, and latency metrics from Kyverno controllers.
 
-### 2. Kyverno Performance Metrics Dashboard
-Shows CPU/memory usage, admission review latency, policy execution performance, and resource utilization.
+### 2. Kyverno Performance Metrics Dashboard (Custom)
+Shows CPU/memory usage, admission review latency, policy execution performance, and resource utilization of Kyverno components.
 
-### 3. Kyverno Policy Reports Dashboard
-Shows compliance status, policy report results, failed/error counts by policy, and cluster-wide policy compliance metrics.
+### 3. PolicyReports Compliance Dashboard (Custom)
+Shows compliance status, aggregated policy metrics, failed/error counts by policy, and cluster-wide compliance trends using Policy Reporter metrics. This is our custom-built dashboard for detailed compliance visualization.
 
-### 4. Kyverno ETCD Storage Observability Dashboard (Optional - requires Step 6)
+### 4. PolicyReports Dashboard (Policy Reporter OSS)
+Shows failing policies by namespace with graphical views. This is the overview dashboard from Policy Reporter that provides a different perspective on policy violations.
+
+### 5. Kyverno ETCD Storage Observability Dashboard (Custom - Optional)
 Shows ETCD cluster health, database size, disk usage, operation latency, and compaction metrics for the reports-server backend.
 
-All dashboards use metrics scraped from the Kyverno controller services through ServiceMonitors.
+All dashboards use metrics scraped from Kyverno controllers and Policy Reporter through ServiceMonitors.
 
 ---
 
